@@ -8,23 +8,7 @@ def image_resize_without_mask(filename_input, filename_output, new_height, new_w
     obj = SeamCarver(filename_input, new_height, new_width)
     obj.save_result(filename_output)
 
-
-def image_resize_with_mask(filename_input, filename_output, new_height, new_width, filename_mask):
-    obj = SeamCarver(filename_input, new_height, new_width, protect_mask=filename_mask)
-    obj.save_result(filename_output)
-
-
-def object_removal(filename_input, filename_output, filename_mask):
-    obj = SeamCarver(filename_input, 0, 0, object_mask=filename_mask)
-    obj.save_result(filename_output)
-
-
-
 if __name__ == '__main__':
-    """
-    Put image in in/images folder and protect or object mask in in/masks folder
-    Ouput image will be saved to out/images folder with filename_output
-    """
 
     folder_in = 'in'
     folder_out = 'out'
@@ -35,23 +19,9 @@ if __name__ == '__main__':
     new_height = 200
     new_width = 512
 
-    # input_image = os.path.join(folder_in, "images", filename_input)
-    # input_mask = os.path.join(folder_in, "masks", filename_mask)
-    # output_image = os.path.join(folder_out, "images", filename_output)
-    # input_image="in/images/image.png"
     input_image="example/image6.jpg"
     output_image="example/image6_result.jpg"
     print(input_image)
     # print(input_mask)
     print(output_image)
     image_resize_without_mask(input_image, output_image, new_height, new_width)
-    # image_resize_with_mask(input_image, output_image, new_height, new_width, input_mask)
-    #object_removal(input_image, output_image, input_mask)
-
-
-
-
-
-
-
-
