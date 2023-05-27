@@ -6,8 +6,8 @@ new_height = 312
 new_width = 312
 
 #指定期望的resize之后图片的长和宽占原来的百分比
-height_percent_resize=1
-width_percent_resize=0.5
+height_percent_resize=1  #保持高度不变
+width_percent_resize=0.5 #宽度减少为原来的二分之一
 
 input_image="example/image.jpg"            #需要进行缩放的图片路径（相对路径）
 output_image="example/image_result.jpg"   #处理后图片的输出路径
@@ -62,7 +62,7 @@ def AddSeam(seam_idx):
                 output[row, col + 1:, ch] = out_image[row, col:, ch]
     out_image = np.copy(output)
 
-def update_seams(remaining_seams, current_seam):
+def UpdateSeams(remaining_seams, current_seam):
     output = []
     for seam in remaining_seams:
         seam[np.where(seam >= current_seam)] += 2
@@ -94,32 +94,16 @@ def FindSeam(cumulative_map):
     # 这段代码的作用是根据下一行已经选取的像素点的列索引值，在当前行中选取一个符合条件的像素点，
     # 并将其列索引值保存到结果数组 output 中，用于最终生成整幅图像的缝隙路径。
     for row in range(m - 2, -1, -1):
-        prv_x = output[row + 1]
-        if prv_x == 0:
+        seam_col = output[row + 1]
+        if seam_col == 0:
             output[row] = np.argmin(cumulative_map[row, : 2])
         else:
-            output[row] = np.argmin(cumulative_map[row, prv_x - 1: min(prv_x + 2, n - 1)]) + prv_x - 1
+            output[row] = np.argmin(cumulative_map[row, seam_col - 1: min(seam_col + 2, n - 1)]) + seam_col - 1
     return output
 
-def NeighborMatrix(kernel):
-    global out_image
-    b, g, r = cv2.split(out_image)
-    neighbor_matrix = np.absolute(cv2.filter2D(b, -1, kernel=kernel)) + \
-                      np.absolute(cv2.filter2D(g, -1, kernel=kernel)) + \
-                      np.absolute(cv2.filter2D(r, -1, kernel=kernel))
-    return neighbor_matrix
-
 # 动归：M(i,j)=e(i,j)+min⁡(M(i-1,j-1),M(i-1,j),M(i-1,j+1))
-#递归每一行每一列，计算每行(i, j)所有可能连通接缝的累计最小能量M
+# 动归每一行每一列，计算每行(i, j)所有可能连通接缝的累计最小能量M
 def CumulativeMapForward(energy_map):   
-    kernel_x = np.array([[0., 0., 0.], [-1., 0., 1.], [0., 0., 0.]], dtype=np.float64)
-    kernel_y_left = np.array([[0., 0., 0.], [0., 0., 1.], [0., -1., 0.]], dtype=np.float64)
-    kernel_y_right = np.array([[0., 0., 0.], [1., 0., 0.], [0., -1., 0.]], dtype=np.float64)
-
-    matrix_x = NeighborMatrix(kernel_x)
-    matrix_y_left = NeighborMatrix(kernel_y_left)
-    matrix_y_right = NeighborMatrix(kernel_y_right)
-
     m, n = energy_map.shape
     #我们使用 np.copy() 函数来避免直接修改 energy_map 对象本身，因为 energy_map 可能会被其他地方的代码所使用，如果直接修改 energy_map，可能会对其他部分的程序产生影响。所
     # 以，通过创建一个副本 cumulative_map 来进行操作，可以避免这种情况的发生。
@@ -131,22 +115,14 @@ def CumulativeMapForward(energy_map):
         for col in range(n):
             #如果是最左边一列,那么当前像素能量累积路径最小的大小应该为其右边和上面中较小的值加上其当前的值
             if col == 0:
-                e_right = cumulative_map[row - 1, col + 1] + matrix_x[row - 1, col + 1] + matrix_y_right[row - 1, col + 1]
-                e_up = cumulative_map[row - 1, col] + matrix_x[row - 1, col]
-                cumulative_map[row, col] = energy_map[row, col] + min(e_right, e_up)
+                cumulative_map[row, col] = energy_map[row, col] + min(energy_map[row-1, col+1], energy_map[row-1, col])
             #如果是最右边的一列
             elif col == n - 1:
-                e_left = cumulative_map[row - 1, col - 1] + matrix_x[row - 1, col - 1] + matrix_y_left[row - 1, col - 1]
-                e_up = cumulative_map[row - 1, col] + matrix_x[row - 1, col]
-                cumulative_map[row, col] = energy_map[row, col] + min(e_left, e_up)
+                cumulative_map[row, col] = energy_map[row, col] + min(energy_map[row-1, col-1], energy_map[row-1, col])
             #如果是中间的部分
             else:
-                e_left = cumulative_map[row - 1, col - 1] + matrix_x[row - 1, col - 1] + matrix_y_left[row - 1, col - 1]
-                e_right = cumulative_map[row - 1, col + 1] + matrix_x[row - 1, col + 1] + matrix_y_right[row - 1, col + 1]
-                e_up = cumulative_map[row - 1, col] + matrix_x[row - 1, col]
-                cumulative_map[row, col] = energy_map[row, col] + min(e_left, e_right, e_up)
+                cumulative_map[row, col] = energy_map[row, col] + min(energy_map[row-1, col+1], energy_map[row-1, col], energy_map[row-1, col-1])
     return cumulative_map
-
 
 def CumulativeMapBackward(energy_map):
     m, n = energy_map.shape
@@ -194,7 +170,7 @@ def InsertSeams(total_times):
     for i in range(n):
         seam = seams_record.pop(0)
         AddSeam(seam)
-        seams_record = update_seams(seams_record, seam)
+        seams_record = UpdateSeams(seams_record, seam)
 
 # 将图片旋转90度
 def RotateImage(image, choose_rotate_dir):
