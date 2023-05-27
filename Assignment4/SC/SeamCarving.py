@@ -5,8 +5,8 @@ import cv2
 height_percent_resize=1  #保持高度不变
 width_percent_resize=0.5 #宽度减少为原来的二分之一
 
-input_image="example/image6.jpg"            #需要进行缩放的图片路径（相对路径）
-output_image="example/image6_result.jpg"   #处理后图片的输出路径
+input_image="example/image.jpg"            #需要进行缩放的图片路径（相对路径）
+output_image="example/image_result.jpg"   #处理后图片的输出路径
 
 #输出图片路径，检查是否正确
 print(input_image)
