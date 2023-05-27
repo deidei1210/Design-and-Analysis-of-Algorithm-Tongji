@@ -1,16 +1,12 @@
 import numpy as np
 import cv2
 
-#指定缩放后图片的高度和宽度
-new_height = 312
-new_width = 312
-
 #指定期望的resize之后图片的长和宽占原来的百分比
 height_percent_resize=1  #保持高度不变
 width_percent_resize=0.5 #宽度减少为原来的二分之一
 
-input_image="example/image.jpg"            #需要进行缩放的图片路径（相对路径）
-output_image="example/image_result.jpg"   #处理后图片的输出路径
+input_image="example/image6.jpg"            #需要进行缩放的图片路径（相对路径）
+output_image="example/image6_result.jpg"   #处理后图片的输出路径
 
 #输出图片路径，检查是否正确
 print(input_image)
@@ -122,7 +118,22 @@ def CumulativeMapForward(energy_map):
             #如果是中间的部分
             else:
                 cumulative_map[row, col] = energy_map[row, col] + min(energy_map[row-1, col+1], energy_map[row-1, col], energy_map[row-1, col-1])
-    return cumulative_map
+    
+    m, n = cumulative_map.shape
+    output = np.zeros((m,), dtype=np.uint32)
+    output[-1] = np.argmin(cumulative_map[-1]) #在最后一行（即图像底部）寻找累积能量值最小的像素点，并保存该点的列索引值为 output[-1]。
+
+    # 从倒数第二行开始，依次向上扫描每一行。对于每一行，都根据下一行中与上一个像素点和当前像素点相邻的三个像素的累积能量值，
+    # 选择其中最小的一个像素点作为当前像素点所在的缝隙位置，并将该点的列索引值保存到结果数组 output 中。
+    # 这段代码的作用是根据下一行已经选取的像素点的列索引值，在当前行中选取一个符合条件的像素点，
+    # 并将其列索引值保存到结果数组 output 中，用于最终生成整幅图像的缝隙路径。
+    for row in range(m - 2, -1, -1):
+        seam_col = output[row + 1]
+        if seam_col == 0:
+            output[row] = np.argmin(cumulative_map[row, : 2])
+        else:
+            output[row] = np.argmin(cumulative_map[row, seam_col - 1: min(seam_col + 2, n - 1)]) + seam_col - 1
+    return output
 
 def CumulativeMapBackward(energy_map):
     m, n = energy_map.shape
@@ -148,8 +159,7 @@ def RemoveSeams(total_times):
     print("Start RemoveSeams!")
     for i in range(total_times):
         energy_map = CalculateEnergyMap()   #计算能量矩阵
-        cumulative_map = CumulativeMapForward(energy_map) 
-        seam_idx = FindSeam(cumulative_map)  #找到每一行在Seam上的像素的列数
+        seam_idx= CumulativeMapForward(energy_map) 
         DeleteSeam(seam_idx) #删除这些列
 
 # 在需要增加宽度的时候增加缝隙的个数
