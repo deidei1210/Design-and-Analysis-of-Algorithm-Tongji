@@ -105,8 +105,8 @@ def CumulativeMapForward(energy_map):
 
 ## 运行效果
 
-![Untitled](code1_Usage%20bcdbe55f8391449f812f3ccfbdcaf4a6/Untitled.png)
+![运行结果图1](https://github.com/deidei1210/Design-and-Analysis-of-Algorithm-Tongji/blob/master/Assignment4/SC/code1/%E8%BF%90%E8%A1%8C%E6%95%88%E6%9E%9C%E5%9B%BE/Untitled%201.png)
 
 （左图为缩放前的图像，右图为宽缩放了二分之一的图像）
 
-![Untitled](code1_Usage%20bcdbe55f8391449f812f3ccfbdcaf4a6/Untitled%201.png)
+![运行结果图2](https://github.com/deidei1210/Design-and-Analysis-of-Algorithm-Tongji/blob/master/Assignment4/SC/code1/%E8%BF%90%E8%A1%8C%E6%95%88%E6%9E%9C%E5%9B%BE/Untitled.png)
