@@ -3,44 +3,27 @@ import cv2
 
 
 class SeamCarver:
-    def __init__(self, filename, out_height, out_width, protect_mask='', object_mask=''):
+    def __init__(self, image_path, height_percent_resize, width_percent_resize):
         # 初始化参数
-        self.filename = filename     #需要处理的图片的路径
-        self.out_height = out_height #期望输出的图片的高度
-        self.out_width = out_width   #期望输出的图片的宽度
-
+        self.image_path = image_path     #需要处理的图片的路径
+        
         # 读入图片，并且将图片以64位浮点数存储
-        self.in_image = cv2.imread(filename).astype(np.float64)
+        self.in_image = cv2.imread(image_path).astype(np.float64)
         self.in_height, self.in_width = self.in_image.shape[: 2]  #获得读入图片的高度和宽度
-
-        # keep tracking resulting image
+        self.out_height = height_percent_resize * self.in_height #期望输出的图片的高度
+        self.out_width = width_percent_resize * self.in_width   #期望输出的图片的宽度
+       
         self.out_image = np.copy(self.in_image)
 
-        # kernel for forward energy map calculation
         self.kernel_x = np.array([[0., 0., 0.], [-1., 0., 1.], [0., 0., 0.]], dtype=np.float64)
         self.kernel_y_left = np.array([[0., 0., 0.], [0., 0., 1.], [0., -1., 0.]], dtype=np.float64)
         self.kernel_y_right = np.array([[0., 0., 0.], [1., 0., 0.], [0., -1., 0.]], dtype=np.float64)
 
         # starting program
-        self.start()
-
-    def start(self):
         self.seams_carving()
 
     #用来实现seams_carving的算法部分
     def seams_carving(self):
-        """
-        :return:
-
-        We first process seam insertion or removal in vertical direction then followed by horizontal direction.
-
-        If targeting height or width is greater than original ones --> seam insertion,
-        else --> seam removal
-
-        The algorithm is written for seam processing in vertical direction (column), so image is rotated 90 degree
-        counter-clockwise for seam processing in horizontal direction (row)
-        """
-
         # 计算需要被移走的像素的行数与列数
         delta_row, delta_col = int(self.out_height - self.in_height), int(self.out_width - self.in_width)
 
@@ -115,16 +98,22 @@ class SeamCarver:
 
         m, n = energy_map.shape
         output = np.copy(energy_map)
-        for row in range(1, m):
+
+        # 动归：M(i,j)=e(i,j)+min⁡(M(i-1,j-1),M(i-1,j),M(i-1,j+1))
+        #递归每一行每一列，计算每行(i, j)所有可能连通接缝的累计最小能量M
+        for row in range(1, m):     
             for col in range(n):
+                #如果是最左边一列
                 if col == 0:
                     e_right = output[row - 1, col + 1] + matrix_x[row - 1, col + 1] + matrix_y_right[row - 1, col + 1]
                     e_up = output[row - 1, col] + matrix_x[row - 1, col]
                     output[row, col] = energy_map[row, col] + min(e_right, e_up)
+                #如果是最右边的一列
                 elif col == n - 1:
                     e_left = output[row - 1, col - 1] + matrix_x[row - 1, col - 1] + matrix_y_left[row - 1, col - 1]
                     e_up = output[row - 1, col] + matrix_x[row - 1, col]
                     output[row, col] = energy_map[row, col] + min(e_left, e_up)
+                #如果是中间的部分
                 else:
                     e_left = output[row - 1, col - 1] + matrix_x[row - 1, col - 1] + matrix_y_left[row - 1, col - 1]
                     e_right = output[row - 1, col + 1] + matrix_x[row - 1, col + 1] + matrix_y_right[row - 1, col + 1]
@@ -144,7 +133,12 @@ class SeamCarver:
     def find_seam(self, cumulative_map):
         m, n = cumulative_map.shape
         output = np.zeros((m,), dtype=np.uint32)
-        output[-1] = np.argmin(cumulative_map[-1])
+        output[-1] = np.argmin(cumulative_map[-1]) #在最后一行（即图像底部）寻找累积能量值最小的像素点，并保存该点的列索引值为 output[-1]。
+
+        # 从倒数第二行开始，依次向上扫描每一行。对于每一行，都根据下一行中与上一个像素点和当前像素点相邻的三个像素的累积能量值，
+        # 选择其中最小的一个像素点作为当前像素点所在的缝隙位置，并将该点的列索引值保存到结果数组 output 中。
+        # 这段代码的作用是根据下一行已经选取的像素点的列索引值，在当前行中选取一个符合条件的像素点，
+        # 并将其列索引值保存到结果数组 output 中，用于最终生成整幅图像的缝隙路径。
         for row in range(m - 2, -1, -1):
             prv_x = output[row + 1]
             if prv_x == 0:
@@ -209,3 +203,23 @@ class SeamCarver:
     #保存图像的最终结果到指定地址
     def save_result(self, filename):
         cv2.imwrite(filename, self.out_image.astype(np.uint8))
+
+def image_resize_without_mask(filename_input, filename_output, height_percent_resize, width_percent_resize):
+    obj = SeamCarver(filename_input, height_percent_resize, width_percent_resize)
+    obj.save_result(filename_output)
+
+if __name__ == '__main__':
+    #指定缩放后图片的高度和宽度
+    new_height = 312
+    new_width = 312
+
+    #指定期望的resize之后图片的长和宽占原来的百分比
+    height_percent_resize=1
+    width_percent_resize=0.6
+
+    input_image="example/image.jpg"            #需要进行缩放的图片路径（相对路径）
+    output_image="example/image_result3.jpg"   #处理后图片的输出路径
+    #输出图片路径，检查是否正确
+    print(input_image)
+    print(output_image)
+    image_resize_without_mask(input_image, output_image,height_percent_resize, width_percent_resize)
